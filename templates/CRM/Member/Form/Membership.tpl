@@ -170,6 +170,7 @@
                  <td>{$form.alternate_contributor.html}<br />
                 {inccd lude file="CRM/Contact/Form/NewContact.tpl"}</td>
               </tr>
+              {* Gift Memberships EDIT starts HERE *}
               <tr id="contri-alternate">
                  <td class="label">{$form.honor_type_id.label}</td>
                  <td>{$form.honor_type_id.html}</td>
@@ -179,6 +180,7 @@
                       <td>{$form.contribution_type_id.html}<br />
                       <span class="description">{ts}Select the appropriate contribution type for this payment.{/ts}</span></td>
                   </tr>
+                {* Gift Memberships EDIT ends HERE *}
                   <tr class="crm-membership-form-block-total_amount">
                       <td class="label">{$form.total_amount.label}</td>
                       <td>{$form.total_amount.html}<br />
