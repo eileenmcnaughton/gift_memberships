@@ -1,0 +1,6 @@
+name = "CiviCRM Gift Memberships"
+description = "Sell gift memberships in Civi"
+core = 6.x
+package = "CiviCRM"
+dependencies[] = civicrm
+

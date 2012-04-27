@@ -1,0 +1,85 @@
+<?php
+
+function gift_memberships_civicrm_pre( $op, $objectName, $objectId, &$objectRef ) {
+
+ // drupal_set_message("_civicrm_pre hook called: op is $op, objectName is $objectName, objectID is $objectId");
+// 
+
+  $giftor = gift_memberships_contribution_contact();
+  if($objectName == 'Contribution' && !empty($giftor)){
+  	$objectRef['honor_contact_id'] = $objectRef['contact_id'];
+  	$objectRef['contact_id'] = $giftor;
+  	gift_memberships_contribution_contact(null, 1);// let's unset it now
+  //	dpm ($objectRef ,$objectName . 'giftor'. $giftor);
+  }
+
+}
+
+
+/*
+ * Implementation of CiviCRM _civicrm_post hook
+ *
+ * http://wiki.civicrm.org/confluence/display/CRMDOC33/CiviCRM+hook+specification#CiviCRMhookspecification-hookcivicrmpost
+ */
+function gift_memberships_civicrm_post( $op, $objectName, $objectId, &$objectRef ) {
+  $msg = "_civicrm_post hook called: op is $op, objectName is $objectName, objectID is $objectId";
+//  drupal_set_message("_civicrm_post hook called: op is $op, objectName is $objectName, objectID is $objectId");
+ // dpm ($objectRef, $objectName . "civicrm_post hook");
+
+
+}
+
+/*
+ * Implementation of CiviCRM _civicrm_validate hook. This hook is invoked when building a CiviCRM form. This hook should also be used to set the default values of a form element
+ *
+ * @formName string the name of the form
+ * @form object reference to the form object
+ * @source http://wiki.civicrm.org/confluence/display/CRMDOC33/CiviCRM+hook+specification#CiviCRMhookspecification-hookcivicrmvalidate
+ */
+ function gift_memberships_civicrm_buildForm( $formName, &$form ){
+ //	dpm($formName);
+ 	require_once 'CRM/Core/PseudoConstant.php';
+  if($formName == 'CRM_Member_Form_Membership' || $formName == 'CRM_Member_Form_MembershipRenewal'){
+   $form->addElement('checkbox', 'alternate_contributor', ts('Record payment from different contact?'));
+   $form->add( 'select', 'honor_type_id', ts('Recognition As'),
+                        array( '' => ts( '-') ) + CRM_Core_PseudoConstant::honor( ) );
+ // $form->addElement('text', 'contact_select_id[999]', ts('999'));
+   require_once 'CRM/Contact/Form/NewContact.php';
+   // had hoped to pass a string instead of a fake number but it didn't load
+   CRM_Contact_Form_NewContact::buildQuickForm( $form ,1, null, 'contribution_');
+  }
+ }
+
+
+/*
+ * Implementation of CiviCRM _civicrm_postProcess hook. This hook is invoked when a CiviCRM
+ * form is submitted. If the module has injected any form elements, this hook should save the values in the database.
+ *
+ * @formName string the name of the form
+ * @form object reference to the form object
+ * @source http://wiki.civicrm.org/confluence/display/CRMDOC33/CiviCRM+hook+specification#CiviCRMhookspecification-hookcivicrmpostProcess
+ */
+function gift_memberships_civicrm_postProcess( $formName, &$form ){
+  drupal_set_message("_civicrm_postProcess hook called: formName is $formName");
+	if(!empty($form->_submitValues['contribution_contact_select_id'])){
+		gift_memberships_contribution_contact($form->_submitValues['contribution_contact_select_id'][1]);	
+	}
+//	dpm('I set giftor to ' .$form->_submitValues['contribution_contact_select_id'][1] . ' see ' .gift_memberships_contribution_contact() );
+}
+
+function gift_memberships_civicrm_validate( $formName,$fields,$files, &$form ){
+  drupal_set_message("_civicrm_postProcess hook called: formName is $formName");
+	if(!empty($form->_submitValues['contribution_contact_select_id'])){
+		gift_memberships_contribution_contact($form->_submitValues['contribution_contact_select_id'][1]);	
+	}
+//	dpm('validate I set giftor to ' .$form->_submitValues['contribution_contact_select_id'][1] . ' see ' .gift_memberships_contribution_contact() );
+}
+
+function gift_memberships_contribution_contact($contact_id = NULL, $force = NULL){
+	static $contact;
+	if(!empty($contact_id) || !empty($force)){
+		$contact = $contact_id;
+	}
+	return $contact;
+	
+}
