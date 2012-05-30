@@ -1,39 +1,32 @@
 <?php
 
-function gift_memberships_civicrm_pre( $op, $objectName, $objectId, &$objectRef ) {
+function gift_memberships_civicrm_pre($op, $objectName, $objectId, &$objectRef) {
+  if($objectName == 'Profile'){
+    // if we are trying to save a profile & the honor fields are set then
+    // let's stash them - then when the honor_contact is saved we'll have something
+    // to match against when trying to grabe the id
+    $honor_fields = array(
+      'honor_first_name' => 1,
+      'honor_last_name' => 1,
+      'honor_email' => 1,
+      'honor_prefix_id' => 1,
+    );
+    $honor_fields = array_intersect_key($objectRef, $honor_fields);
+    if(count($honor_fields > 0)){
+      gift_memberships_contribution_singleton($honor_fields);
+    }
+  }
 
- // drupal_set_message("_civicrm_pre hook called: op is $op, objectName is $objectName, objectID is $objectId");
-// 
-
-  $giftor = gift_memberships_contribution_contact();
-  if($objectName == 'Contribution' && !empty($giftor)){
-  	$objectRef['honor_contact_id'] = $objectRef['contact_id'];
-  	$objectRef['contact_id'] = $giftor;
-  	gift_memberships_contribution_contact(null, 1);// let's unset it now
-  //	dpm ($objectRef ,$objectName . 'giftor'. $giftor);
+  if ($objectName == 'Membership') {
+    // so we'll retrieve the contact_id now
+    $recipient = gift_memberships_contribution_singleton();
+    if(is_integer($recipient)){
+      $objectRef['contact_id'] = $recipient;
+    }
   }
 
 }
 
-/**
- * (Delegated) Implementation of hook_civicrm_config
- */
-function gift_memberships_civicrm_config(&$config) {
-
-  $template =& CRM_Core_Smarty::singleton();
-
-  $extRoot = dirname( __FILE__ ) . DIRECTORY_SEPARATOR;
-  $extDir = $extRoot . 'templates';
-
-  if ( is_array( $template->template_dir ) ) {
-      array_unshift( $template->template_dir, $extDir );
-  } else {
-      $template->template_dir = array( $extDir, $template->template_dir );
-  }
-
-  $include_path = $extRoot . PATH_SEPARATOR . get_include_path( );
-  set_include_path( $include_path );
-}
 
 /*
  * Implementation of CiviCRM _civicrm_post hook
@@ -41,11 +34,10 @@ function gift_memberships_civicrm_config(&$config) {
  * http://wiki.civicrm.org/confluence/display/CRMDOC33/CiviCRM+hook+specification#CiviCRMhookspecification-hookcivicrmpost
  */
 function gift_memberships_civicrm_post( $op, $objectName, $objectId, &$objectRef ) {
-  $msg = "_civicrm_post hook called: op is $op, objectName is $objectName, objectID is $objectId";
-//  drupal_set_message("_civicrm_post hook called: op is $op, objectName is $objectName, objectID is $objectId");
- // dpm ($objectRef, $objectName . "civicrm_post hook");
-
-
+  if($objectName == 'Individual'){
+    // this is the only point we have the honor_contact id so we grab it here & stash it
+    gift_memberships_contribution_singleton(array(),$objectRef);
+  }
 }
 
 /*
@@ -54,7 +46,7 @@ function gift_memberships_civicrm_post( $op, $objectName, $objectId, &$objectRef
  * @formName string the name of the form
  * @form object reference to the form object
  * @source http://wiki.civicrm.org/confluence/display/CRMDOC33/CiviCRM+hook+specification#CiviCRMhookspecification-hookcivicrmvalidate
- */
+
  function gift_memberships_civicrm_buildForm( $formName, &$form ){
  //	dpm($formName);
  	require_once 'CRM/Core/PseudoConstant.php';
@@ -69,7 +61,7 @@ function gift_memberships_civicrm_post( $op, $objectName, $objectId, &$objectRef
   }
  }
 
-
+ */
 /*
  * Implementation of CiviCRM _civicrm_postProcess hook. This hook is invoked when a CiviCRM
  * form is submitted. If the module has injected any form elements, this hook should save the values in the database.
@@ -77,28 +69,27 @@ function gift_memberships_civicrm_post( $op, $objectName, $objectId, &$objectRef
  * @formName string the name of the form
  * @form object reference to the form object
  * @source http://wiki.civicrm.org/confluence/display/CRMDOC33/CiviCRM+hook+specification#CiviCRMhookspecification-hookcivicrmpostProcess
- */
-function gift_memberships_civicrm_postProcess( $formName, &$form ){
-  drupal_set_message("_civicrm_postProcess hook called: formName is $formName");
-	if(!empty($form->_submitValues['contribution_contact_select_id'])){
-		gift_memberships_contribution_contact($form->_submitValues['contribution_contact_select_id'][1]);	
-	}
-//	dpm('I set giftor to ' .$form->_submitValues['contribution_contact_select_id'][1] . ' see ' .gift_memberships_contribution_contact() );
-}
+ */function gift_memberships_civicrm_postProcess( $formName, &$form ){
 
+ }
+
+/*
 function gift_memberships_civicrm_validate( $formName,$fields,$files, &$form ){
-  drupal_set_message("_civicrm_postProcess hook called: formName is $formName");
-	if(!empty($form->_submitValues['contribution_contact_select_id'])){
-		gift_memberships_contribution_contact($form->_submitValues['contribution_contact_select_id'][1]);	
-	}
-//	dpm('validate I set giftor to ' .$form->_submitValues['contribution_contact_select_id'][1] . ' see ' .gift_memberships_contribution_contact() );
 }
+*/
 
-function gift_memberships_contribution_contact($contact_id = NULL, $force = NULL){
-	static $contact;
-	if(!empty($contact_id) || !empty($force)){
-		$contact = $contact_id;
-	}
-	return $contact;
-	
+function gift_memberships_contribution_singleton($honor_fields = null, $contact_object = null, $force = NULL) {
+  static $honorcontactsingleton = array();
+  if(!empty($honor_fields) || $force){
+    $honorcontactsingleton = $honor_fields;
+  }
+
+  if(!empty($contact_object) && !empty($honorcontactsingleton)){
+    // nb at this stage assuming last_name & first name are required
+    if($contact_object->first_name == $honorcontactsingleton['honor_first_name']
+    && $contact_object->last_name == $honorcontactsingleton['honor_last_name']){
+      $honorcontactsingleton['contact_id'] = $contact_object->id;
+    }
+  }
+  return CRM_Utils_Array::value('contact_id',$honorcontactsingleton);
 }
