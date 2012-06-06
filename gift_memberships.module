@@ -23,11 +23,49 @@ function gift_memberships_civicrm_pre($op, $objectName, $objectId, &$objectRef) 
     if(is_integer($recipient)){
       $objectRef['contact_id'] = $recipient;
     }
+    $address = gift_memberships_address_singleton();
+    if(is_numeric($address)){
+      // this is a first time address creation - we are updating it
+      civicrm_api('address', 'create', array(
+      'version' => 3,
+      'id' => $address,
+      'contact_id' => $recipient));
+    }elseif (is_array($address)){
+      // this is an edit - ie. logged in contact already has a address &
+      // we want to avoid over-writing
+      $address['contact_id'] = $recipient;
+      $address['version'] = 3;
+   //  civicrm_api('address', 'create', $address);
+    }
+  }
+}
+
+function gift_memberships_civicrm_buildForm($formName, &$form){
+
+  if($formName == 'CRM_Contribute_Form_Contribution_Main'){
+    require_once 'CRM/Profile/Form/ProfileContact.php';
+    CRM_Profile_Form_ProfileContact::preProcess( $form, 'honor_', 14 );
+    CRM_Profile_Form_ProfileContact::buildQuickForm( $form, 'Individual','Gift Membership','honor_' );
   }
 
 }
 
+/*
+ * Assign create profile to template - useful for building honor block for example
+ *
+ * @param $profileID integer id of profile
+ * @param $prefix string prefix string - eg 'honor_'
+ */
+   // assignLightweightProfileBlock($form,14, 'honor_');
+    function assignLightweightProfileBlock(&$form,$profileID, $prefix = '_'){
 
+     $profileHTML = civicrm_api('profile','gethtml', array(
+          'id' => $profileID,
+          'version' => '3',
+          'prefix' => $prefix,
+          'no_buttons' => 1));
+      $form->assign($prefix . 'profile',$profileHTML['values'][0]['html']);
+    }
 /*
  * Implementation of CiviCRM _civicrm_post hook
  *
@@ -37,6 +75,27 @@ function gift_memberships_civicrm_post( $op, $objectName, $objectId, &$objectRef
   if($objectName == 'Individual'){
     // this is the only point we have the honor_contact id so we grab it here & stash it
     gift_memberships_contribution_singleton(array(),$objectRef);
+  }
+  if($objectName == 'Address'){
+    //CRM-10287 address is an array = wrong & might change so let's check
+    if(is_array($objectRef)){
+      $objectArray = null;
+      if($op == 'Edit'){
+        $objectArray = $objectRef;
+      }
+      if($objectRef['location_type_id'] != 5){
+        gift_memberships_address_singleton($objectRef['id'], $objectArray);
+      }
+    }elseif($objectRef->location_type_id != 5){
+      $objectArray = null;
+      if($op == 'Edit'){
+        $objectArray = array($objectRef);
+      }
+      // this is the address we want to re-assign if honor contact is set - we'll stash the id
+      // note it will only be retrieved if a profile with honor contact is saved followed by
+      // a call to membership so chould be ok-ish
+      gift_memberships_address_singleton($objectRef->id, $objectArray);
+    }
   }
 }
 
@@ -49,7 +108,7 @@ function gift_memberships_civicrm_post( $op, $objectName, $objectId, &$objectRef
 
  function gift_memberships_civicrm_buildForm( $formName, &$form ){
  //	dpm($formName);
- 	require_once 'CRM/Core/PseudoConstant.php';
+ require_once 'CRM/Core/PseudoConstant.php';
   if($formName == 'CRM_Member_Form_Membership' || $formName == 'CRM_Member_Form_MembershipRenewal'){
    $form->addElement('checkbox', 'alternate_contributor', ts('Record payment from different contact?'));
    $form->add( 'select', 'honor_type_id', ts('Recognition As'),
@@ -71,7 +130,13 @@ function gift_memberships_civicrm_post( $op, $objectName, $objectId, &$objectRef
  * @source http://wiki.civicrm.org/confluence/display/CRMDOC33/CiviCRM+hook+specification#CiviCRMhookspecification-hookcivicrmpostProcess
  */function gift_memberships_civicrm_postProcess( $formName, &$form ){
 
- }
+if($formName == 'CRM_Contribution_Form_Main'){
+     require_once 'CRM/Profile/Form/ProfileContact/OnBehalfOf.php';
+   //  CRM_Profile_Form_ProfileContact::preProcess( $form, 'honor_', 14 );
+   }
+  }
+
+
 
 /*
 function gift_memberships_civicrm_validate( $formName,$fields,$files, &$form ){
@@ -92,4 +157,23 @@ function gift_memberships_contribution_singleton($honor_fields = null, $contact_
     }
   }
   return CRM_Utils_Array::value('contact_id',$honorcontactsingleton);
+}
+
+function gift_memberships_address_singleton($address_id = null, $address_array = null){
+  static $addressID = null;
+  static $addressArray = null;
+  if(!empty($address_id)){
+    $addressID = $address_id;
+  }
+  if(!empty( $address_array)){
+    $addressArray = $address_array;
+  }
+
+  if(!empty($addressArray)){
+    // so, this is an edit so we will duplicate the address rather than changing the contact
+    unset($address_array['id']);
+    return $address_array;
+  }
+  return $addressID;
+
 }
