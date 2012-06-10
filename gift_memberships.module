@@ -1,146 +1,67 @@
 <?php
+define('HONOR_PROFILE', 14);
 
+/*
+ * Implementation of CiviCRM pre hook
+ * if we are trying to save a profile & the honor fields are set then
+ * we need to stash them the values- then when the membership is saved
+ * we'll be able to get the contact id of the honor contact to re-assign thme
+ * to match against when trying to grab the id
+ */
 function gift_memberships_civicrm_pre($op, $objectName, $objectId, &$objectRef) {
+  // this is the point where the honor contact is saved
   if($objectName == 'Profile'){
-    // if we are trying to save a profile & the honor fields are set then
-    // let's stash them - then when the honor_contact is saved we'll have something
-    // to match against when trying to grabe the id
     $honor_fields = array(
       'honor_first_name' => 1,
       'honor_last_name' => 1,
       'honor_email' => 1,
       'honor_prefix_id' => 1,
     );
-    $honor_fields = array_intersect_key($objectRef, $honor_fields);
+    $honor_fields = array_intersect_key($objectRef, $honor_fields)
+      + CRM_Utils_Array::value('honor_', $objectRef, array());
     if(count($honor_fields > 0)){
       gift_memberships_contribution_singleton($honor_fields);
     }
   }
-
+  // now we can re-assign the membership
   if ($objectName == 'Membership') {
-    // so we'll retrieve the contact_id now
     $recipient = gift_memberships_contribution_singleton();
     if(is_integer($recipient)){
       $objectRef['contact_id'] = $recipient;
     }
-    $address = gift_memberships_address_singleton();
-    if(is_numeric($address)){
-      // this is a first time address creation - we are updating it
-      civicrm_api('address', 'create', array(
-      'version' => 3,
-      'id' => $address,
-      'contact_id' => $recipient));
-    }elseif (is_array($address)){
-      // this is an edit - ie. logged in contact already has a address &
-      // we want to avoid over-writing
-      $address['contact_id'] = $recipient;
-      $address['version'] = 3;
-   //  civicrm_api('address', 'create', $address);
-    }
   }
 }
-
+/*
+ * Add the honor profile into the contribution page
+ * - hopefully we'll get contribution pages as profiles into core
+ */
 function gift_memberships_civicrm_buildForm($formName, &$form){
 
   if($formName == 'CRM_Contribute_Form_Contribution_Main'){
     require_once 'CRM/Profile/Form/ProfileContact.php';
-    CRM_Profile_Form_ProfileContact::preProcess( $form, 'honor_', 14 );
+    CRM_Profile_Form_ProfileContact::preProcess( $form, 'honor_', HONOR_PROFILE );
     CRM_Profile_Form_ProfileContact::buildQuickForm( $form, 'Individual','Gift Membership','honor_' );
   }
 
 }
 
 /*
- * Assign create profile to template - useful for building honor block for example
- *
- * @param $profileID integer id of profile
- * @param $prefix string prefix string - eg 'honor_'
- */
-   // assignLightweightProfileBlock($form,14, 'honor_');
-    function assignLightweightProfileBlock(&$form,$profileID, $prefix = '_'){
-
-     $profileHTML = civicrm_api('profile','gethtml', array(
-          'id' => $profileID,
-          'version' => '3',
-          'prefix' => $prefix,
-          'no_buttons' => 1));
-      $form->assign($prefix . 'profile',$profileHTML['values'][0]['html']);
-    }
-/*
  * Implementation of CiviCRM _civicrm_post hook
- *
+ * this is the only point we have the honor_contact id so we grab it here & stash it
+ * for when the membership is about to be saved
  * http://wiki.civicrm.org/confluence/display/CRMDOC33/CiviCRM+hook+specification#CiviCRMhookspecification-hookcivicrmpost
  */
 function gift_memberships_civicrm_post( $op, $objectName, $objectId, &$objectRef ) {
   if($objectName == 'Individual'){
-    // this is the only point we have the honor_contact id so we grab it here & stash it
     gift_memberships_contribution_singleton(array(),$objectRef);
   }
-  if($objectName == 'Address'){
-    //CRM-10287 address is an array = wrong & might change so let's check
-    if(is_array($objectRef)){
-      $objectArray = null;
-      if($op == 'Edit'){
-        $objectArray = $objectRef;
-      }
-      if($objectRef['location_type_id'] != 5){
-        gift_memberships_address_singleton($objectRef['id'], $objectArray);
-      }
-    }elseif($objectRef->location_type_id != 5){
-      $objectArray = null;
-      if($op == 'Edit'){
-        $objectArray = array($objectRef);
-      }
-      // this is the address we want to re-assign if honor contact is set - we'll stash the id
-      // note it will only be retrieved if a profile with honor contact is saved followed by
-      // a call to membership so chould be ok-ish
-      gift_memberships_address_singleton($objectRef->id, $objectArray);
-    }
-  }
 }
 
 /*
- * Implementation of CiviCRM _civicrm_validate hook. This hook is invoked when building a CiviCRM form. This hook should also be used to set the default values of a form element
- *
- * @formName string the name of the form
- * @form object reference to the form object
- * @source http://wiki.civicrm.org/confluence/display/CRMDOC33/CiviCRM+hook+specification#CiviCRMhookspecification-hookcivicrmvalidate
-
- function gift_memberships_civicrm_buildForm( $formName, &$form ){
- //	dpm($formName);
- require_once 'CRM/Core/PseudoConstant.php';
-  if($formName == 'CRM_Member_Form_Membership' || $formName == 'CRM_Member_Form_MembershipRenewal'){
-   $form->addElement('checkbox', 'alternate_contributor', ts('Record payment from different contact?'));
-   $form->add( 'select', 'honor_type_id', ts('Recognition As'),
-                        array( '' => ts( '-') ) + CRM_Core_PseudoConstant::honor( ) );
- // $form->addElement('text', 'contact_select_id[999]', ts('999'));
-   require_once 'CRM/Contact/Form/NewContact.php';
-   // had hoped to pass a string instead of a fake number but it didn't load
-   CRM_Contact_Form_NewContact::buildQuickForm( $form ,1, null, 'contribution_');
-  }
- }
-
- */
-/*
- * Implementation of CiviCRM _civicrm_postProcess hook. This hook is invoked when a CiviCRM
- * form is submitted. If the module has injected any form elements, this hook should save the values in the database.
- *
- * @formName string the name of the form
- * @form object reference to the form object
- * @source http://wiki.civicrm.org/confluence/display/CRMDOC33/CiviCRM+hook+specification#CiviCRMhookspecification-hookcivicrmpostProcess
- */function gift_memberships_civicrm_postProcess( $formName, &$form ){
-
-if($formName == 'CRM_Contribution_Form_Main'){
-     require_once 'CRM/Profile/Form/ProfileContact/OnBehalfOf.php';
-   //  CRM_Profile_Form_ProfileContact::preProcess( $form, 'honor_', 14 );
-   }
-  }
-
-
-
-/*
-function gift_memberships_civicrm_validate( $formName,$fields,$files, &$form ){
-}
+* In order to indentify the honor contact we need to store the fields when the contact
+* is being created off the profile. Then on the post hook we can compare
+* the fields to see if we have a match & if so return the id of the contact
+* - then we swap over the membership
 */
 
 function gift_memberships_contribution_singleton($honor_fields = null, $contact_object = null, $force = NULL) {
@@ -150,9 +71,9 @@ function gift_memberships_contribution_singleton($honor_fields = null, $contact_
   }
 
   if(!empty($contact_object) && !empty($honorcontactsingleton)){
-    // nb at this stage assuming last_name & first name are required
-    if($contact_object->first_name == $honorcontactsingleton['honor_first_name']
-    && $contact_object->last_name == $honorcontactsingleton['honor_last_name']){
+    // We are assuming first name & last name are required fields
+    if($contact_object->first_name == $honorcontactsingleton['first_name']
+    && $contact_object->last_name == $honorcontactsingleton['last_name']){
       $honorcontactsingleton['contact_id'] = $contact_object->id;
     }
   }
@@ -176,4 +97,21 @@ function gift_memberships_address_singleton($address_id = null, $address_array =
   }
   return $addressID;
 
+}
+/**
+ * Implementation of hook_civicrm_config - we register our template directory here
+*/
+
+
+function gift_memberships_civicrm_config(&$config) {
+  $template =& CRM_Core_Smarty::singleton();
+   $extRoot = dirname( __FILE__ ) . DIRECTORY_SEPARATOR;
+  $extDir = $extRoot . 'templates';
+  if ( is_array( $template->template_dir ) ) {
+   array_unshift( $template->template_dir, $extDir );
+  } else {
+    $template->template_dir = array( $extDir, $template->template_dir );
+  }
+    $include_path = $extRoot . PATH_SEPARATOR . get_include_path( );
+    set_include_path( $include_path );
 }
