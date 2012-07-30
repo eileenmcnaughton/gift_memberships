@@ -26,7 +26,7 @@ function gift_memberships_civicrm_pre($op, $objectName, $objectId, &$objectRef) 
   // now we can re-assign the membership
   if ($objectName == 'Membership') {
     $recipient = gift_memberships_contribution_singleton();
-    if(is_integer($recipient)){
+    if(is_numeric($recipient)){
       $objectRef['contact_id'] = $recipient;
     }
   }
