@@ -179,7 +179,7 @@ function clearAmountOther() {
         <div id="honorType" class="honoree-name-email-section crm-section honor.name-section"">
           <div id="honor_profile" class="crm-section {$form.honor_email.name}-section">
             {include file=CRM/Profile/Form/ProfileContact.tpl
-                                      prefix='honor_'  fields=$form.field.honor_
+                                      prefix='honor_'  fields=$form.honor_
                                      }
           </div>
             <div class="label">{$form.honor_email.label}</div>
