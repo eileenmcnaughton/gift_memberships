@@ -74,12 +74,13 @@ function gift_memberships_civicrm_tokens( &$tokens ) {
 *http://wiki.civicrm.org/confluence/display/CRMDOC33/CiviCRM+hook+specification#CiviCRMhookspecification-hookcivicrmtokens
 */
 function gift_memberships_civicrm_tokenValues( &$values, $cids, $job, $tokens = array(), $context = null ) {
-  if(!$context == 'CRM_Core_BAO_MessageTemplate'){
+  $user = gift_memberships_singleton();
+  if(!$context == 'CRM_Core_BAO_MessageTemplate' || empty($user)){
     return;
   }
 
-  $values[$cids['contact_id']]['gift_membership.honor_contact_username'] = 'u';
-  $values[$cids['contact_id']]['gift_membership.honor_contact_username'] = 'p';
+  $values[$cids['contact_id']]['gift_membership.honor_contact_username'] = $user['mail'];
+  $values[$cids['contact_id']]['gift_membership.honor_contact_password'] = $user['pass'];
 }
 /*
 * In order to indentify the honor contact we need to store the fields when the contact
@@ -103,7 +104,12 @@ function gift_memberships_contribution_singleton($honor_fields = null, $contact_
   }
   return CRM_Utils_Array::value('contact_id',$honorcontactsingleton);
 }
-
+/**
+ *
+ * @param integet $address_id
+ * @param array $address_array
+ * @return integer id of address
+ */
 function gift_memberships_address_singleton($address_id = null, $address_array = null){
   static $addressID = null;
   static $addressArray = null;
@@ -150,42 +156,48 @@ function gift_memberships_create_drupal_user($recipient, $retrieve = false){
   if(!CREATE_DRUPAL_USER){
     return;
   }
-  static $user = array();
-  if(!$retrieve){
-    $user['recipient'] = $recipient;
-  }
-  else{
-    $recipient = $user['recipient'];
-  }
+  $user = array('recipient' => $recipient);
 
-  if(!empty($user)){
-    // I don't think we need to worry about possibility of more than 1 in a transaction
-    return $user;
-  }
-  $config = CRM_Core_Config::singleton();
-
+  //check for existing matched user account
   //nb not domain sensitive - should default to current domain @ api level
   $ufmatch = civicrm_api('uf_match', 'get', array('version' => 3, 'contact_id' => $recipient, 'sequential' => 1) );
   if($ufmatch['count'] == 1){
     $user['uid'] = $ufmatch['values'][0]['uf_id'];
-    return $user;
+    return gift_memberships_singleton($user);
   }
+
+  //now lets use the civicrm sync mechanism to see if Civi can match the contact to an existing user
   $contact = civicrm_api('contact', 'getsingle', array('version' => 3, 'id' => $recipient, 'sequential' => 1, 'return' => 'email,display_name,first_name,last_name') );
-  $params = array('name' => $contact['display_name'], 'mail' => $contact['email'], 'email' =>  $contact['email']);
+  $params = array(
+    'name' => $contact['display_name'],
+    'mail' => $contact['email'],
+    'email' =>  $contact['email']);
   $errors = array();
+  $config = CRM_Core_Config::singleton();
   $config->userSystem->checkUserNameEmailExists($params, $errors);
 
   if(!empty($errors)){
-    // presumably where there is an clash - not sure when this will arise
-    return;
+    echo "undiagnosed error";
+    die;
   }
-  $params['cms_name'] = $contact['display_name'];
-  $params['cms_pass'] = substr(CRM_Contact_BAO_Contact_Utils::generateChecksum($recipient, 255),2,7);
+  $params['cms_name'] = $params['name'] = $user['name'] = $contact['display_name'];
+  $params['cms_pass'] = $user['pass'] =  substr(str_shuffle("abcefghijklmnopqrstuvwxyz"), 0, 8);
   $user['uid'] = $config->userSystem->createUser($params, 'email') ;
-  $user['pass'] = $params['cms_pass'];
+  $user['mail'] = $params['mail'];
 
   $userobj = (object) $user;
   //civi doesn't do this when created off Civi Form
   CRM_Core_BAO_UFMatch::synchronizeUFMatch($userobj, $userobj->uid, $contact['email']);
-  return $user;
+  return gift_memberships_singleton($user);
+}
+/*
+ * Function to store user array
+ * @return array $user user array
+ */
+function gift_memberships_singleton($user = null){
+  static $stasheduser = null;
+  if(!empty($user)){
+    $stasheduser = $user;
+  }
+  return $stasheduser;
 }
