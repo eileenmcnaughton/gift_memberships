@@ -189,21 +189,21 @@ function gift_memberships_create_drupal_user($recipient, $retrieve = false){
   //civi doesn't do this when created off Civi Form
   // in order for dedupe finder to work it needs params in $_POST (shoud b able to pass in but...)
   // this is a bit clunky
-  if(empty($_POST['first_name'){
-    $_POST['first_name']= $contact['first_name];
+  if(empty($_POST['first_name'])){
+    $_POST['first_name']= $contact['first_name'];
     $firstName=1;
   }
-    if(empty($_POST['last_name'){
-    $_POST['last_name']= $contact[last_name];
+    if(empty($_POST['last_name'])){
+    $_POST['last_name']= $contact['last_name'];
     $lastName=1;
   }
-  
+
   CRM_Core_BAO_UFMatch::synchronizeUFMatch($userobj, $userobj->uid, $contact['email']);
-  if(!empty($lastName){
+  if(!empty($lastName)){
     unset($_POST['last_name']);
   }
-  
-  if(!empty($firstName){
+
+  if(!empty($firstName)){
     unset($_POST['first_name']);
   }
   return gift_memberships_singleton($user);
