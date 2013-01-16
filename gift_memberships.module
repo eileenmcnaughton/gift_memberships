@@ -198,7 +198,7 @@ function gift_memberships_create_drupal_user($recipient, $retrieve = false){
     $lastName=1;
   }
 
-  CRM_Core_BAO_UFMatch::synchronizeUFMatch($userobj, $userobj->uid, $contact['email']);
+  CRM_Core_BAO_UFMatch::synchronizeUFMatch($userobj, $userobj->uid, $contact['email'], 'Drupal');
   if(!empty($lastName)){
     unset($_POST['last_name']);
   }
