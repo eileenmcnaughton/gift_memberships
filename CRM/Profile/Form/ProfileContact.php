@@ -53,56 +53,6 @@ class CRM_Profile_Form_ProfileContact
         $form->assign( $prefix . 'profileId', $form->_profileId );
         $form->assign( 'mode', $form->_mode );
         $form->profile_{$prefix} = array('id' => $profileId, 'requiredFields' => $requiredProfileFields);
-/* We should move all this to the calling function
-        require_once 'CRM/Core/BAO/UFJoin.php';
-        $ufJoinParams     = array( 'module'       => $module,
-                                   'entity_table' => 'civicrm_contribution_page',
-                                   'entity_id'    => $form->_id );
-        $profileId        = CRM_Core_BAO_UFJoin::getUFGroupIds( $ufJoinParams );
-        $form->_profileId = $profileId[0];
-
-        if ( !$form->_profileId ||
-             !CRM_Core_DAO::getFieldValue( 'CRM_Core_DAO_UFGroup', $form->_profileId, 'is_active' ) ) {
-            CRM_Core_Error::fatal( ts( 'This contribution page has been configured for contribution on behalf of an organization and the selected onbehalf profile is either disabled or not found.' ) );
-        }
-
-        $requiredProfileFields = array( 'organization_name', 'email' );
-
-        $validProfile          = CRM_Core_BAO_UFGroup::checkValidProfile( $form->_profileId, $requiredProfileFields );
-        if ( !$validProfile ) {
-            CRM_Core_Error::fatal( ts( 'This contribution page has been configured for contribution on behalf of an organization and the required fields of the selected onbehalf profile are disabled.' ) );
-        }
-
-
-
-        if ( $contactID ) {
-            $form->_employers = CRM_Contact_BAO_Relationship::getPermissionedEmployer( $contactID );
-            if ( !empty( $form->_employers ) ) {
-                $form->_relatedOrganizationFound = true;
-
-                $locDataURL = CRM_Utils_System::url( 'civicrm/ajax/permlocation', 'cid=', false, null, false );
-                $form->assign( 'locDataURL', $locDataURL );
-
-                $dataURL = CRM_Utils_System::url( 'civicrm/ajax/employer', 'cid=' . $contactID, false, null, false );
-                $form->assign( 'employerDataURL', $dataURL );
-            }
-
-            if ( $form->_values['is_for_organization'] != 2 ) {
-                $form->assign( 'relatedOrganizationFound', $form->_relatedOrganizationFound );
-            } else {
-                $form->assign( 'onBehalfRequired', $form->_onBehalfRequired );
-            }
-
-            if ( count( $form->_employers ) == 1 ) {
-                foreach ( $form->_employers as $id => $value ) {
-                    $form->_organizationName = $value['name'];
-                    $orgId = $id;
-                }
-                $form->assign( 'orgId', $orgId );
-                $form->assign( 'organizationName', $form->_organizationName );
-            }
-        }
-                */
     }
 
     /**
@@ -119,23 +69,6 @@ class CRM_Profile_Form_ProfileContact
     {
         $form->assign( 'fieldSetTitle', ts($title) );
         $form->assign( $prefix . 'profileform', true );
-/* move to calling function
-        $session   = CRM_Core_Session::singleton( );
-        $contactID = $session->get( 'userID' );
-
-        if ( $contactID && count( $form->_employers ) >= 1 ) {
-            $form->add('text', 'organization_id', ts('Select an existing related Organization OR enter a new one') );
-            $form->add('hidden', 'onbehalfof_id', '', array( 'id' => 'onbehalfof_id' ) );
-
-            $orgOptions = array( 0 => ts('Select an existing organization'),
-                                 1 => ts('Enter a new organization') );
-
-            $form->addRadio( 'org_option', ts('options'), $orgOptions );
-            $form->setDefaults( array( 'org_option' => 0 ) );
-            $form->add( 'checkbox', 'mode', '' );
-        }
-*/
-
         $profileFields = CRM_Core_BAO_UFGroup::getFields( $form->_profileId, false, CRM_Core_Action::VIEW, null,
                                                           null, false, null, false, null,
                                                           CRM_Core_Permission::CREATE, null );
