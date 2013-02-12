@@ -29,8 +29,8 @@ function gift_memberships_civicrm_pre($op, $objectName, $objectId, &$objectRef) 
     $recipient = gift_memberships_contribution_singleton();
     if(is_numeric($recipient)){
       $objectRef['contact_id'] = $recipient;
+      gift_memberships_create_drupal_user($recipient);
     }
-    gift_memberships_create_drupal_user($recipient);
   }
 }
 /*
@@ -96,6 +96,7 @@ function gift_memberships_civicrm_post( $op, $objectName, $objectId, &$objectRef
     gift_memberships_contribution_singleton(array(),$objectRef);
   }
 }
+
 
 /*
  * Implementation of CiviCRM _civicrm_tokens hook
