@@ -39,12 +39,50 @@ function gift_memberships_civicrm_pre($op, $objectName, $objectId, &$objectRef) 
  */
 function gift_memberships_civicrm_buildForm($formName, &$form){
 
-  if($formName == 'CRM_Contribute_Form_Contribution_Main'){
-    require_once 'CRM/Profile/Form/ProfileContact.php';
-    CRM_Profile_Form_ProfileContact::preProcess( $form, 'honor_', HONOR_PROFILE );
-    CRM_Profile_Form_ProfileContact::buildQuickForm( $form, 'Individual','Gift Membership','honor_' );
+  if(substr($formName, 0, 32) == 'CRM_Contribute_Form_Contribution'){
+    $membershipContactID = null;
+    $session = CRM_Core_Session::singleton();
+    $current_user = CRM_Utils_Request::retrieve('userID', 'Integer', $session);
+    $mid = CRM_Utils_Request::retrieve('mid', 'Integer', $form);
+    if($mid){
+      $membershipContactID = civicrm_api('membership', 'getvalue', array(
+        'version' => 3,
+        'id' => $mid,
+        'return' => 'contact_id',
+      ));
+      if(!empty($membershipContactID) && $membershipContactID == $current_user){
+        $form->assign('honor_block_is_active', FALSE);
+      }
+    }
+    if(!empty($current_user) && $current_user != $membershipContactID && _gift_memberships_current_user_is_giver($mid, $current_user)){
+      $session = CRM_Core_Session::singleton();
+      $messages = $session->getStatus();
+      if($messages == "Oops. The membership you're trying to renew appears to be invalid. Contact your site administrator if you need assistance. If you continue, you will be issued a new membership."){
+        $session->getStatus(TRUE);
+      }
+    }
+    else{
+      // we don't want anything to preload if they didn't pay for the last sub
+      $membershipContactID = NULL;
+    }
+    if($formName == 'CRM_Contribute_Form_Contribution_Main'){
+      $honorTypes = CRM_Contribute_PseudoConstant::honor(TRUE);
+      $defaultHonorType = 1;
+      foreach ($honorTypes as $honorKey => $dontcare){
+        $defaultHonorType = $honorKey;
+        continue;
+      }
+      $defaults = array('honor_type_id' => $defaultHonorType);
+      $form->setDefaults($defaults);
+      if($membershipContactID){
+        $form->assign('honor_contact_required', TRUE);
+      }
+      require_once 'CRM/Profile/Form/ProfileContact.php';
+      require_once 'CRM/Core/Session.php';
+      CRM_Profile_Form_ProfileContact::preProcess( $form, 'honor_', HONOR_PROFILE );
+      CRM_Profile_Form_ProfileContact::buildQuickForm( $form, 'Individual','Gift Membership','honor_', $membershipContactID );
+    }
   }
-
 }
 
 /*
@@ -218,4 +256,17 @@ function gift_memberships_singleton($user = null){
     $stasheduser = $user;
   }
   return $stasheduser;
+}
+/*
+ * Check if the current user gave the membership in question
+ */
+function _gift_memberships_current_user_is_giver($membership_id, $contact_id){
+  $contributions = civicrm_api('membership_payment', 'getvalue', array(
+    'version' => 3,
+    'membership_id' => $membership_id,
+    'return' => 'api.contribution.getcount',
+    'options' => array('limit' => 1, 'sort' => 'id DESC'),
+    'api.contribution.getcount' => array('contact_id' => $contact_id, 'contribution_status' => 1,)
+  ));
+  return (is_int($contributions) && $contributions > 0 )? 1 : 0;
 }

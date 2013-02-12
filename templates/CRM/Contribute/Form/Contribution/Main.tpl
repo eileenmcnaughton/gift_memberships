@@ -172,7 +172,7 @@ function clearAmountOther() {
             <div class="crm-section {$form.honor_type_id.name}-section">
             <div class="content" >
               {$form.honor_type_id.html}
-              <span class="crm-clear-link">(<a href="#" title="unselect" onclick="unselectRadio('honor_type_id', '{$form.formName}');enableHonorType(); return false;">{ts}clear{/ts}</a>)</span>
+              {if !$honor_contact_required}<span class="crm-clear-link">(<a href="#" title="unselect" onclick="unselectRadio('honor_type_id', '{$form.formName}');enableHonorType(); return false;">{ts}clear{/ts}</a>)</span>{/if}
             </div>
             </div>
         {/if}
@@ -180,7 +180,7 @@ function clearAmountOther() {
           <div id="honor_profile" class="crm-section {$form.honor_email.name}-section">
             {include file=CRM/Profile/Form/ProfileContact.tpl
                                       prefix='honor_'  fields=$form.honor_
-                                     }
+             }
           </div>
             <div class="label">{$form.honor_email.label}</div>
               <div class="content">

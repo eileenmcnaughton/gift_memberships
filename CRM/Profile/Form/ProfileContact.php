@@ -65,7 +65,7 @@ class CRM_Profile_Form_ProfileContact
      *
      * @static
      */
-    static function buildQuickForm( &$form,$contactType ,$title, $prefix )
+    static function buildQuickForm( &$form,$contactType ,$title, $prefix, $contactID = null )
     {
         $form->assign( 'fieldSetTitle', ts($title) );
         $form->assign( $prefix . 'profileform', true );
@@ -78,9 +78,16 @@ class CRM_Profile_Form_ProfileContact
         } else {
             $fieldTypes = array_merge( $fieldTypes, array( 'Contribution' ) );
         }
-
+        if($contactID){
+          $defaults = array();
+          $profileFieldsPlusEmail = $profileFields + array('email' => array('name' => 'email'));
+          CRM_Core_BAO_UFGroup::setProfileDefaults($contactID, $profileFieldsPlusEmail, $defaults);
+        }
         $stateCountryMap = array( );
         foreach ( $profileFields as $name => $field ) {
+          $profileFields[$name]['value'] = $defaults[$name];
+          $defaults[$prefix . '[' . $name.']'] = $defaults[$name];
+          unset ($defaults[$name]);
             if ( in_array( $field['field_type'], $fieldTypes ) ) {
                 list( $prefixName, $index ) = CRM_Utils_System::explode( '-', $name, 2 );
                 if ( in_array( $prefixName, array( 'state_province', 'country', 'county' ) ) ) {
@@ -102,7 +109,12 @@ class CRM_Profile_Form_ProfileContact
             CRM_Core_BAO_Address::addStateCountryMap( $stateCountryMap );
         }
 
+        $defaults['honor_email'] = $defaults['email'];
+        unset($defaults['email']);
+        $form->setDefaults($defaults);
         $form->assign($prefix. 'ProfileFields', $profileFields);
         $form->addElement( 'hidden', "hidden_{$prefix}profile", 1 );
     }
+
+
 }
