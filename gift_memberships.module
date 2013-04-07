@@ -1,5 +1,5 @@
 <?php
-define('HONOR_PROFILE', 14);
+define('HONOR_PROFILE', 1);
 define('CREATE_DRUPAL_USER', TRUE);
 
 /*
@@ -38,8 +38,9 @@ function gift_memberships_civicrm_pre($op, $objectName, $objectId, &$objectRef) 
  * - hopefully we'll get contribution pages as profiles into core
  */
 function gift_memberships_civicrm_buildForm($formName, &$form){
-
-  if(substr($formName, 0, 32) == 'CRM_Contribute_Form_Contribution'){
+//CRM_Contribute_Form_Contribution_Main
+  if(substr($formName, 0, 32) == 'CRM_Contribute_Form_Contribution'
+    && !empty($form->_values['honor_block_is_active'])){
     $membershipContactID = null;
     $session = CRM_Core_Session::singleton();
     $current_user = CRM_Utils_Request::retrieve('userID', 'Integer', $session);
@@ -53,18 +54,20 @@ function gift_memberships_civicrm_buildForm($formName, &$form){
       if(!empty($membershipContactID) && $membershipContactID == $current_user){
         $form->assign('honor_block_is_active', FALSE);
       }
-    }
-    if(!empty($current_user) && $current_user != $membershipContactID && _gift_memberships_current_user_is_giver($mid, $current_user)){
-      $session = CRM_Core_Session::singleton();
-      $messages = $session->getStatus();
-      if($messages == "Oops. The membership you're trying to renew appears to be invalid. Contact your site administrator if you need assistance. If you continue, you will be issued a new membership."){
-        $session->getStatus(TRUE);
+      if(!empty($current_user) && $current_user != $membershipContactID && _gift_memberships_current_user_is_giver($mid, $current_user)){
+        $session = CRM_Core_Session::singleton();
+        $messages = $session->getStatus();
+        if($messages == "Oops. The membership you're trying to renew appears to be invalid. Contact your site administrator if you need assistance. If you continue, you will be issued a new membership."){
+          $session->getStatus(TRUE);
+        }
       }
+
     }
     else{
-      // we don't want anything to preload if they didn't pay for the last sub
-      $membershipContactID = NULL;
+        // we don't want anything to preload if they didn't pay for the last sub
+        $membershipContactID = NULL;
     }
+
     if($formName == 'CRM_Contribute_Form_Contribution_Main'){
       $honorTypes = CRM_Contribute_PseudoConstant::honor(TRUE);
       $defaultHonorType = 1;
@@ -77,8 +80,6 @@ function gift_memberships_civicrm_buildForm($formName, &$form){
       if($membershipContactID){
         $form->assign('honor_contact_required', TRUE);
       }
-      require_once 'CRM/Profile/Form/ProfileContact.php';
-      require_once 'CRM/Core/Session.php';
       CRM_Profile_Form_ProfileContact::preProcess( $form, 'honor_', HONOR_PROFILE );
       CRM_Profile_Form_ProfileContact::buildQuickForm( $form, 'Individual','Gift Membership','honor_', $membershipContactID );
     }

@@ -1,8 +1,8 @@
 {*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.1                                                |
+ | CiviCRM version 4.2                                                |
  +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2011                                |
+ | Copyright CiviCRM LLC (c) 2004-2012                                |
  +--------------------------------------------------------------------+
  | This file is a part of CiviCRM.                                    |
  |                                                                    |
@@ -23,34 +23,68 @@
  | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
  +--------------------------------------------------------------------+
 *}
+{if $ppType}
+  {include file="CRM/Core/BillingBlock.tpl"}
+ {if $is_monetary}
+  {* Put PayPal Express button after customPost block since it's the submit button in this case. *}
+  {if $paymentProcessor.payment_processor_type EQ 'PayPal_Express'}
+  <div id="paypalExpress">
+     {assign var=expressButtonName value='_qf_Main_upload_express'}
+      <fieldset class="crm-group paypal_checkout-group">
+        <legend>{ts}Checkout with PayPal{/ts}</legend>
+        <div class="section">
+        <div class="crm-section paypalButtonInfo-section">
+          <div class="content">
+              <span class="description">{ts}Click the PayPal button to continue.{/ts}</span>
+          </div>
+          <div class="clear"></div>
+        </div>
+        <div class="crm-section {$expressButtonName}-section">
+            <div class="content">
+              {$form.$expressButtonName.html} <span class="description">Checkout securely. Pay without sharing your financial information. </span>
+            </div>
+            <div class="clear"></div>
+        </div>
+        </div>
+      </fieldset>
+   </div>
+  {/if}
+ {/if}
 
-{if $onbehalf}
+{elseif $onbehalf}
    {include file=CRM/Contribute/Form/Contribution/OnBehalfOf.tpl}
 {else}
 {literal}
 <script type="text/javascript">
-<!--
+
 // Putting these functions directly in template so they are available for standalone forms
 
 function useAmountOther() {
-    for( i=0; i < document.Main.elements.length; i++ ) {
-        element = document.Main.elements[i];
-        if ( element.type == 'radio' && element.name == 'amount' ) {
-            if (element.value == 'amount_other_radio' ) {
-                element.checked = true;
-            } else {
-                element.checked = false;
-            }
-        }
+  var priceset = {/literal}{if $contriPriceset}'{$contriPriceset}'{else}0{/if}{literal};
+
+  for( i=0; i < document.Main.elements.length; i++ ) {
+    element = document.Main.elements[i];
+    if ( element.type == 'radio' && element.name == priceset ) {
+      if (element.value == '0' ) {
+        element.click();
+      }
+      else {
+        element.checked = false;
+      }
     }
+  }
 }
 
 function clearAmountOther() {
+var priceset = {/literal}{if $priceset}'#{$priceset}'{else}0{/if}{literal}
+    if( priceset ){
+      cj(priceset).val('');
+  cj(priceset).blur();
+    }
   if (document.Main.amount_other == null) return; // other_amt field not present; do nothing
   document.Main.amount_other.value = "";
 }
 
-//-->
 </script>
 {/literal}
 
@@ -62,77 +96,63 @@ function clearAmountOther() {
 
 {capture assign='reqMark'}<span class="marker" title="{ts}This field is required.{/ts}">*</span>{/capture}
 <div class="crm-block crm-contribution-main-form-block">
-    <div id="intro_text" class="crm-section intro_text-section">
-        {$intro_text}
-    </div>
-{if $islifetime or $ispricelifetime }
-<div id="help">You have a current Lifetime Membership which does not need top be renewed.</div>
-{/if}
-{if $priceSet && empty($useForMember)}
-    <div id="priceset">
-        <fieldset>
-            <legend>{ts}Contribution{/ts}</legend>
-            {include file="CRM/Price/Form/PriceSet.tpl" extends="Contribution"}
-        </fieldset>
-    </div>
-{else}
-        {include file="CRM/Contribute/Form/Contribution/MembershipBlock.tpl" context="makeContribution"}
+  <div id="intro_text" class="crm-section intro_text-section">
+      {$intro_text}
+  </div>
+  {if $islifetime or $ispricelifetime }
+    <div id="help">You have a current Lifetime Membership which does not need to be renewed.</div>
+  {/if}
 
-  {if $form.amount}
-      <div class="crm-section {$form.amount.name}-section">
-      <div class="label">{$form.amount.label}</div>
-      <div class="content">{$form.amount.html}</div>
-      <div class="clear"></div>
-      </div>
+  {if !empty($useForMember)}
+      {include file="CRM/Contribute/Form/Contribution/MembershipBlock.tpl" context="makeContribution"}
+  {else}
+    <div id="priceset-div">
+      {include file="CRM/Price/Form/PriceSet.tpl" extends="Contribution"}
+    </div>
   {/if}
-  {if $is_allow_other_amount}
-      <div class="crm-section {$form.amount_other.name}-section">
-      <div class="label">{$form.amount_other.label}</div>
-      <div class="content">{$form.amount_other.html|crmMoney}</div>
-      <div class="clear"></div>
-      </div>
-  {/if}
+
   {if $pledgeBlock}
       {if $is_pledge_payment}
-      <div class="crm-section {$form.pledge_amount.name}-section">
-      <div class="label">{$form.pledge_amount.label}&nbsp;<span class="marker">*</span></div>
-      <div class="content">{$form.pledge_amount.html}</div>
-      <div class="clear"></div>
-      </div>
+        <div class="crm-section {$form.pledge_amount.name}-section">
+          <div class="label">{$form.pledge_amount.label}&nbsp;<span class="marker">*</span></div>
+          <div class="content">{$form.pledge_amount.html}</div>
+          <div class="clear"></div>
+        </div>
       {else}
-      <div class="crm-section {$form.is_pledge.name}-section">
-      <div class="content">
-        {$form.is_pledge.html}&nbsp;
-        {if $is_pledge_interval}
-          {$form.pledge_frequency_interval.html}&nbsp;
-        {/if}
-        {$form.pledge_frequency_unit.html}&nbsp;{ts}for{/ts}&nbsp;{$form.pledge_installments.html}&nbsp;{ts}installments.{/ts}
-      </div>
-      </div>
+        <div class="crm-section {$form.is_pledge.name}-section">
+          <div class="label">&nbsp;</div>
+          <div class="content">
+            {$form.is_pledge.html}&nbsp;
+            {if $is_pledge_interval}
+              {$form.pledge_frequency_interval.html}&nbsp;
+            {/if}
+            {$form.pledge_frequency_unit.html}<span id="pledge_installments_num">&nbsp;{ts}for{/ts}&nbsp;{$form.pledge_installments.html}&nbsp;{ts}installments.{/ts}</span>
+          </div>
+          <div class="clear"></div>
+        </div>
       {/if}
   {/if}
-{/if}
-  {if $form.is_pay_later}
-      <div class="crm-section {$form.is_pay_later.name}-section">
-      <div class="content">{$form.is_pay_later.html}&nbsp;{$form.is_pay_later.label}</div>
-      </div>
-  {/if}
+
+
   {if $form.is_recur}
-      <div class="crm-section {$form.is_recur.name}-section">
+    <div class="crm-section {$form.is_recur.name}-section">
+      <div class="label">&nbsp;</div>
       <div class="content">
-        <p><strong>{$form.is_recur.html} {ts}every{/ts} &nbsp;{$form.frequency_interval.html} &nbsp; {$form.frequency_unit.html}&nbsp; {ts}for{/ts} &nbsp; {$form.installments.html} &nbsp;{$form.installments.label}</strong>
-        </p>
+        <p><strong>{$form.is_recur.html} {ts}every{/ts} &nbsp;{$form.frequency_interval.html} &nbsp; {$form.frequency_unit.html}<span id="recur_installments_num">&nbsp; {ts}for{/ts} &nbsp; {$form.installments.html} &nbsp;{$form.installments.label}</span></strong></p>
         <p><span class="description">{ts}Your recurring contribution will be processed automatically for the number of installments you specify. You can leave the number of installments blank if you want to make an open-ended commitment. In either case, you can choose to cancel at any time.{/ts}
             {if $is_email_receipt}
                 {ts}You will receive an email receipt for each recurring contribution. The receipts will include a link you can use if you decide to modify or cancel your future contributions.{/ts}
             {/if}
             </span></p>
-        </div>
       </div>
+      <div class="clear"></div>
+    </div>
   {/if}
   {if $pcpSupporterText}
       <div class="crm-section pcpSupporterText-section">
-      <div class="content">{$pcpSupporterText}</div>
+        <div class="label">&nbsp;</div>
+        <div class="content">{$pcpSupporterText}</div>
+        <div class="clear"></div>
       </div>
   {/if}
       {assign var=n value=email-$bltID}
@@ -146,10 +166,12 @@ function clearAmountOther() {
 
   {if $form.is_for_organization}
     <div class="crm-section {$form.is_for_organization.name}-section">
-        <div class="content">
-          {$form.is_for_organization.html}&nbsp;{$form.is_for_organization.label}
-        </div>
+      <div class="label">&nbsp;</div>
+      <div class="content">
+        {$form.is_for_organization.html}&nbsp;{$form.is_for_organization.label}
       </div>
+      <div class="clear"></div>
+    </div>
   {/if}
 
 
@@ -172,26 +194,28 @@ function clearAmountOther() {
             <div class="crm-section {$form.honor_type_id.name}-section">
             <div class="content" >
               {$form.honor_type_id.html}
-              {if !$honor_contact_required}<span class="crm-clear-link">(<a href="#" title="unselect" onclick="unselectRadio('honor_type_id', '{$form.formName}');enableHonorType(); return false;">{ts}clear{/ts}</a>)</span>{/if}
+              <span class="crm-clear-link">(<a href="#" title="unselect" onclick="unselectRadio('honor_type_id', '{$form.formName}');enableHonorType(); return false;">{ts}clear{/ts}</a>)</span>
+              <div class="description">{ts}Please include the name, and / or email address of the person you are honoring.{/ts}</div>
             </div>
             </div>
         {/if}
-        <div id="honorType" class="honoree-name-email-section crm-section honor.name-section"">
-          <div id="honor_profile" class="crm-section {$form.honor_email.name}-section">
+        <div id="honorType" class="honoree-name-email-section">
+          <div class="crm-section {$form.honor_prefix_id.name}-section">
+             <div id="honor_profile" class="crm-section {$form.honor_email.name}-section">
             {include file=CRM/Profile/Form/ProfileContact.tpl
-                                      prefix='honor_'  fields=$form.honor_
-             }
+              prefix='honor_'  fields=$form.field.honor_
+            }
           </div>
+          <div id="honorTypeEmail" class="crm-section {$form.honor_email.name}-section">
             <div class="label">{$form.honor_email.label}</div>
               <div class="content">
                 {$form.honor_email.html}
-
-              <div class="clear"></div>
-            </div>
+               </div>
+            <div class="clear"></div>
           </div>
+        </div>
       </fieldset>
     {/if}
-
 
     <div class="crm-group custom_pre_profile-group">
       {include file="CRM/UF/Form/Block.tpl" fields=$customPre}
@@ -232,13 +256,36 @@ function clearAmountOther() {
     </fieldset>
     {/if}
 
-    {if $is_monetary}
-        {include file='CRM/Core/BillingBlock.tpl'}
+    {if $form.payment_processor.label}
+      <fieldset class="crm-group payment_options-group">
+        <legend>{ts}Payment Options{/ts}</legend>
+        <div class="crm-section payment_processor-section">
+          <div class="label">{$form.payment_processor.label}</div>
+          <div class="content">{$form.payment_processor.html}</div>
+          <div class="clear"></div>
+        </div>
+      </fieldset>
     {/if}
 
+    {if $is_pay_later}
+      <fieldset class="crm-group pay_later-group">
+        <legend>{ts}Payment Options{/ts}</legend>
+        <div class="crm-section pay_later_receipt-section">
+          <div class="label">&nbsp;</div>
+          <div class="content">
+            [x] {$pay_later_text}
+          </div>
+          <div class="clear"></div>
+        </div>
+      </fieldset>
+    {/if}
+
+    <div id="billing-payment-block"></div>
+    {include file="CRM/common/paymentBlock.tpl"}
+
     <div class="crm-group custom_post_profile-group">
-      {include file="CRM/UF/Form/Block.tpl" fields=$customPost}
-  </div>
+    {include file="CRM/UF/Form/Block.tpl" fields=$customPost}
+    </div>
 
     {if $is_monetary and $form.bank_account_number}
     <div id="payment_notice">
@@ -252,37 +299,12 @@ function clearAmountOther() {
     {if $isCaptcha}
   {include file='CRM/common/ReCAPTCHA.tpl'}
     {/if}
-    <div id="paypalExpress">
-    {if $is_monetary}
-  {* Put PayPal Express button after customPost block since it's the submit button in this case. *}
-  {if $paymentProcessor.payment_processor_type EQ 'PayPal_Express'}
-      {assign var=expressButtonName value='_qf_Main_upload_express'}
-      <fieldset class="crm-group paypal_checkout-group">
-        <legend>{ts}Checkout with PayPal{/ts}</legend>
-        <div class="section">
-        <div class="crm-section paypalButtonInfo-section">
-          <div class="content">
-              <span class="description">{ts}Click the PayPal button to continue.{/ts}</span>
-          </div>
-          <div class="clear"></div>
-        </div>
-        <div class="crm-section {$expressButtonName}-section">
-            <div class="content">
-              {$form.$expressButtonName.html} <span class="description">Checkout securely. Pay without sharing your financial information. </span>
-            </div>
-            <div class="clear"></div>
-        </div>
-        </div>
-      </fieldset>
-  {/if}
-    {/if}
-    </div>
     <div id="crm-submit-buttons" class="crm-submit-buttons">
         {include file="CRM/common/formButtons.tpl" location="bottom"}
     </div>
     {if $footer_text}
       <div id="footer_text" class="crm-section contribution_footer_text-section">
-      <p>{$footer_text}</p>
+       <p>{$footer_text}</p>
       </div>
     {/if}
     <br>
@@ -297,7 +319,7 @@ function clearAmountOther() {
 {include file="CRM/common/showHideByFieldValue.tpl"
     trigger_field_id    ="is_pay_later"
     trigger_value       =""
-    target_element_id   ="payment_information"
+    target_element_id   ="billing-payment-block"
     target_element_type ="table-row"
     field_type          ="radio"
     invert              = 1
@@ -307,50 +329,45 @@ function clearAmountOther() {
 <script type="text/javascript">
 {if $pcp}pcpAnonymous();{/if}
 {literal}
-var is_monetary = {/literal}{$is_monetary}{literal}
-if (! is_monetary ) {
-    if ( document.getElementsByName("is_pay_later")[0] ) {
-  document.getElementsByName("is_pay_later")[0].disabled = true;
-    }
-}
+
 if ( {/literal}"{$form.is_recur}"{literal} ) {
-    if ( document.getElementsByName("is_recur")[0].checked == true ) {
-  window.onload = function() {
+  if ( document.getElementsByName("is_recur")[0].checked == true ) {
+    window.onload = function() {
       enablePeriod();
-  }
     }
+  }
 }
+
 function enablePeriod ( ) {
-    var frqInt  = {/literal}"{$form.frequency_interval}"{literal};
-    if ( document.getElementsByName("is_recur")[0].checked == true ) {
-  document.getElementById('installments').value = '';
-  if ( frqInt ) {
+  var frqInt  = {/literal}"{$form.frequency_interval}"{literal};
+  if ( document.getElementsByName("is_recur")[0].checked == true ) {
+    document.getElementById('installments').value = '';
+    if ( frqInt ) {
       document.getElementById('frequency_interval').value    = '';
       document.getElementById('frequency_interval').disabled = true;
-  }
-  document.getElementById('installments').disabled   = true;
-  document.getElementById('frequency_unit').disabled = true;
+    }
+    document.getElementById('installments').disabled   = true;
+    document.getElementById('frequency_unit').disabled = true;
 
-  //get back to auto renew settings.
-  var allowAutoRenew = {/literal}'{$allowAutoRenewMembership}'{literal};
-  if ( allowAutoRenew && cj("#auto_renew") ) {
-     showHideAutoRenew( null );
-  }
-    } else {
-  if ( frqInt ) {
+    //get back to auto renew settings.
+    var allowAutoRenew = {/literal}'{$allowAutoRenewMembership}'{literal};
+    if ( allowAutoRenew && cj("#auto_renew") ) {
+      showHideAutoRenew( null );
+    }
+  } else {
+    if ( frqInt ) {
       document.getElementById('frequency_interval').disabled = false;
-  }
-  document.getElementById('installments').disabled   = false;
-  document.getElementById('frequency_unit').disabled = false;
+    }
+    document.getElementById('installments').disabled   = false;
+    document.getElementById('frequency_unit').disabled = false;
 
-  //disabled auto renew settings.
-  var allowAutoRenew = {/literal}'{$allowAutoRenewMembership}'{literal};
-  if ( allowAutoRenew && cj("#auto_renew") ) {
+    //disabled auto renew settings.
+    var allowAutoRenew = {/literal}'{$allowAutoRenewMembership}'{literal};
+    if ( allowAutoRenew && cj("#auto_renew") ) {
       cj("#auto_renew").attr( 'checked', false );
       cj('#allow_auto_renew').hide( );
-  }
-
     }
+  }
 }
 
 {/literal}{if $relatedOrganizationFound and $reset}{literal}
@@ -375,51 +392,79 @@ function enableHonorType( ) {
   }
   if ( isHonor ) {
     show('honorType', 'block');
-    show('for_honor_', 'block');
+    show('honorTypeEmail', 'block');
   }
   else {
-  cj('#honor_-profile input').each(function(i,v) {
-    cj(v).val('');
-  });
+    document.getElementById('honor_first_name').value = '';
+    document.getElementById('honor_last_name').value  = '';
+    document.getElementById('honor_email').value      = '';
+    document.getElementById('honor_prefix_id').value  = '';
     hide('honorType', 'block');
-    hide('for_honor_', 'block');
-
+    hide('honorTypeEmail', 'block');
   }
 }
 
 function pcpAnonymous( ) {
-    // clear nickname field if anonymous is true
-    if ( document.getElementsByName("pcp_is_anonymous")[1].checked ) {
-        document.getElementById('pcp_roll_nickname').value = '';
-    }
-    if ( ! document.getElementsByName("pcp_display_in_roll")[0].checked ) {
-        hide('nickID', 'block');
-        hide('nameID', 'block');
-  hide('personalNoteID', 'block');
-    } else {
-        if ( document.getElementsByName("pcp_is_anonymous")[0].checked ) {
-            show('nameID', 'block');
-            show('nickID', 'block');
+  // clear nickname field if anonymous is true
+  if ( document.getElementsByName("pcp_is_anonymous")[1].checked ) {
+    document.getElementById('pcp_roll_nickname').value = '';
+  }
+  if ( ! document.getElementsByName("pcp_display_in_roll")[0].checked ) {
+    hide('nickID', 'block');
+    hide('nameID', 'block');
+    hide('personalNoteID', 'block');
+  } else {
+    if ( document.getElementsByName("pcp_is_anonymous")[0].checked ) {
+      show('nameID', 'block');
+      show('nickID', 'block');
       show('personalNoteID', 'block');
-        } else {
-            show('nameID', 'block');
-            hide('nickID', 'block');
+    } else {
+      show('nameID', 'block');
+      hide('nickID', 'block');
       hide('personalNoteID', 'block');
-        }
     }
+  }
 }
+
 {/literal}{if $form.is_pay_later and $paymentProcessor.payment_processor_type EQ 'PayPal_Express'}{literal}
     showHidePayPalExpressOption();
-{/literal} {/if}{literal}
-function showHidePayPalExpressOption()
-{
-    if (document.getElementsByName("is_pay_later")[0].checked) {
-  show("crm-submit-buttons");
-  hide("paypalExpress");
-    } else {
-  show("paypalExpress");
-  hide("crm-submit-buttons");
-    }
+{/literal} {/if}
+
+{literal}
+
+function toggleConfirmButton() {
+  var payPalExpressId = "{/literal}{$payPalExpressId}{literal}";
+  var elementObj = cj('input[name="payment_processor"]');
+   if ( elementObj.attr('type') == 'hidden' ) {
+      var processorTypeId = elementObj.val( );
+   } else {
+      var processorTypeId = elementObj.filter(':checked').val();
+   }
+
+   if (payPalExpressId !=0 && payPalExpressId == processorTypeId) {
+      hide("crm-submit-buttons");
+   } else {
+      show("crm-submit-buttons");
+   }
+}
+
+cj('input[name="payment_processor"]').change( function() {
+  toggleConfirmButton();
+});
+
+cj(function() {
+  toggleConfirmButton();
+});
+
+function showHidePayPalExpressOption() {
+  if (cj('input[name="is_pay_later"]').is(':checked')) {
+    show("crm-submit-buttons");
+    hide("paypalExpress");
+  }
+  else {
+    show("paypalExpress");
+    hide("crm-submit-buttons");
+  }
 }
 {/literal}
 </script>

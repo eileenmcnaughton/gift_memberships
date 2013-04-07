@@ -78,16 +78,18 @@ class CRM_Profile_Form_ProfileContact
         } else {
             $fieldTypes = array_merge( $fieldTypes, array( 'Contribution' ) );
         }
+        $defaults = array();
         if($contactID){
-          $defaults = array();
           $profileFieldsPlusEmail = $profileFields + array('email' => array('name' => 'email'));
           CRM_Core_BAO_UFGroup::setProfileDefaults($contactID, $profileFieldsPlusEmail, $defaults);
         }
         $stateCountryMap = array( );
         foreach ( $profileFields as $name => $field ) {
-          $profileFields[$name]['value'] = $defaults[$name];
-          $defaults[$prefix . '[' . $name.']'] = $defaults[$name];
-          unset ($defaults[$name]);
+          if(isset($defaults[$name])){
+            $profileFields[$name]['value'] = $defaults[$name];
+            $defaults[$prefix . '[' . $name.']'] = $defaults[$name];
+            unset ($defaults[$name]);
+          }
             if ( in_array( $field['field_type'], $fieldTypes ) ) {
                 list( $prefixName, $index ) = CRM_Utils_System::explode( '-', $name, 2 );
                 if ( in_array( $prefixName, array( 'state_province', 'country', 'county' ) ) ) {
@@ -108,9 +110,10 @@ class CRM_Profile_Form_ProfileContact
             require_once 'CRM/Core/BAO/Address.php';
             CRM_Core_BAO_Address::addStateCountryMap( $stateCountryMap );
         }
-
-        $defaults['honor_email'] = $defaults['email'];
-        unset($defaults['email']);
+        if(isset($defaults['email'])){
+          $defaults['honor_email'] = $defaults['email'];
+          unset($defaults['email']);
+        }
         $form->setDefaults($defaults);
         $form->assign($prefix. 'ProfileFields', $profileFields);
         $form->addElement( 'hidden', "hidden_{$prefix}profile", 1 );
