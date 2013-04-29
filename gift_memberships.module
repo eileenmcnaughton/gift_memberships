@@ -10,6 +10,7 @@ define('CREATE_DRUPAL_USER', TRUE);
  * to match against when trying to grab the id
  */
 function gift_memberships_civicrm_pre($op, $objectName, $objectId, &$objectRef) {
+
   // this is the point where the honor contact is saved
   if($objectName == 'Profile'){
     $honor_fields = array(
@@ -19,13 +20,15 @@ function gift_memberships_civicrm_pre($op, $objectName, $objectId, &$objectRef) 
       'honor_prefix_id' => 1,
     );
     $honor_fields = array_intersect_key($objectRef, $honor_fields)
-      + CRM_Utils_Array::value('honor_', $objectRef, array());
+      + CRM_Utils_Array::value('honor_', $objectRef['field'], array());
     if(count($honor_fields > 0)){
       gift_memberships_contribution_singleton($honor_fields);
     }
   }
+
   // now we can re-assign the membership
   if ($objectName == 'Membership') {
+
     $recipient = gift_memberships_contribution_singleton();
     if(is_numeric($recipient)){
       $objectRef['contact_id'] = $recipient;
@@ -40,7 +43,7 @@ function gift_memberships_civicrm_pre($op, $objectName, $objectId, &$objectRef) 
 function gift_memberships_civicrm_buildForm($formName, &$form){
 //CRM_Contribute_Form_Contribution_Main
   if(substr($formName, 0, 32) == 'CRM_Contribute_Form_Contribution'
-    && !empty($form->_values['honor_block_is_active'])){
+    && isset($form->_values) && !empty($form->_values['honor_block_is_active'])){
     $membershipContactID = null;
     $session = CRM_Core_Session::singleton();
     $current_user = CRM_Utils_Request::retrieve('userID', 'Integer', $session);
